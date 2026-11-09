@@ -12,7 +12,7 @@
 |---|---|
 | 接收分享 | 注册 `ACTION_SEND`（`text/plain` + `*/*`），出现在所有 App 的分享列表 |
 | 自动抽链 | 正则从分享文案里提取 URL，支持中文标点截断、去重 |
-| 自动标题 | HTTP 抓 `<title>` → 失败则隐藏 WebView 执行 JS 过反爬（知乎可用） |
+| 自动标题 | HTTP 抓 `<title>` → 失败则隐藏 WebView 执行 JS 过反爬（**知乎实测可用**） |
 | 短链解析 | `b23.tv` / `xhslink.com` / `t.cn` 自动解析成真实 URL |
 | 跳转 | 点击条目按来源直接唤起知乎/B站 App（显式 Deep Link） |
 | 管理 | 长按：打开/复制/改标题/重新抓取/删除 |
@@ -129,9 +129,22 @@ startActivity(i);                     // 失败自动回退系统浏览器
 
 ## 调试分享内容
 
-装上 App 后，在任意 App 里分享，选择「**CM调试**」，即可看到该 App 传入的
-**完整 Intent 字段**（action / type / ClipData / 全部 extras 的类型与值），
-支持一键复制。用于排查某个 App 分享了什么。
+`DebugShareActivity` 能 dump 任意 App 分享时传入的**完整 Intent 字段**
+（action / type / ClipData / 全部 extras 的类型与值），支持一键复制。
+
+**默认不启用**：它已从分享列表移除（`exported="false"`，无 `intent-filter`），
+避免分享列表里多一个选项。排查具体 App 分享格式时，在
+`AndroidManifest.xml` 里恢复注释中的 `intent-filter` 重新构建即可。
+
+实测结果参考——知乎 App 分享时只给裸链接：
+
+```
+EXTRA_TEXT      = https://zhuanlan.zhihu.com/p/xxx
+EXTRA_SUBJECT   = ""        (空字符串)
+EXTRA_TITLE     = 不存在
+EXTRA_HTML_TEXT = 不存在
+ClipData.html   = null
+```
 
 ---
 

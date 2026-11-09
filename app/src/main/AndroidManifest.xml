@@ -45,18 +45,22 @@
             </intent-filter>
         </activity>
 
-        <!-- 调试：原样显示分享内容，用于确认格式。上线前可删 -->
-        <activity
-            android:name=".DebugShareActivity"
-            android:exported="true"
-            android:label="CM调试"
-            android:excludeFromRecents="true"
-            android:theme="@android:style/Theme.DeviceDefault.Light">
+        <!--
+            调试：原样 dump 分享 Intent 的全部字段。
+            已从分享列表移除（去掉 intent-filter），代码保留供排查用。
+            需要时恢复下面这段 intent-filter 即可重新出现在分享列表：
+
             <intent-filter android:label="CM调试">
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="*/*" />
             </intent-filter>
-        </activity>
+        -->
+        <activity
+            android:name=".DebugShareActivity"
+            android:exported="false"
+            android:label="CM调试"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.DeviceDefault.Light" />
     </application>
 </manifest>
