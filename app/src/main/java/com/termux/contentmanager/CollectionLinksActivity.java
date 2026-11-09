@@ -2,6 +2,7 @@ package com.termux.contentmanager;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.graphics.Color;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.Gravity;
@@ -40,14 +41,19 @@ public class CollectionLinksActivity extends Activity {
         if (collectionId <= 0) { finish(); return; }
 
         LinearLayout root = UiKit.vertical(this);
-        int p = UiKit.dp(this, 8);
+        root.setBackgroundColor(UiKit.C.BG);
+        int p = UiKit.dp(this, 14);
 
-        TextView hint = UiKit.text(this, "顺序即结构，用 ▲▼ 调整", 12f);
-        hint.setAlpha(0.65f);
-        hint.setPadding(p, p, p, p);
+        TextView hint = UiKit.text(this, "▤  顺序即结构，用 ▲▼ 调整", 12f);
+        hint.setTextColor(UiKit.C.TEXT_3);
+        hint.setPadding(p, UiKit.dp(this, 12), p, UiKit.dp(this, 8));
         root.addView(hint);
 
         ListView list = new ListView(this);
+        list.setDivider(null);
+        list.setDividerHeight(0);
+        list.setPadding(UiKit.dp(this, 14), 0, UiKit.dp(this, 14), UiKit.dp(this, 14));
+        list.setClipToPadding(false);
         adapter = new ItemAdapter();
         list.setAdapter(adapter);
         list.setOnItemClickListener((vp, v, pos, id) -> {
@@ -63,7 +69,9 @@ public class CollectionLinksActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
         emptyView = UiKit.text(this,
-                "这个收藏夹还是空的。\n在列表里长按条目 → 加入收藏夹。", 15f);
+                "▤\n\n这个收藏夹还是空的\n在条目上长按 → 加入收藏夹", 14f);
+        emptyView.setTextColor(UiKit.C.TEXT_3);
+        emptyView.setGravity(Gravity.CENTER);
         int ep = UiKit.dp(this, 24);
         emptyView.setPadding(ep, ep, ep, ep);
         root.addView(emptyView);
@@ -112,56 +120,103 @@ public class CollectionLinksActivity extends Activity {
 
         @Override
         public View getView(int pos, View convert, ViewGroup parent) {
-            LinearLayout box;
-            TextView idx, title, sub, up, down;
+            LinearLayout outer, box, mid;
+            TextView idx, badge, title, sub, up, down;
             if (convert == null) {
+                outer = UiKit.vertical(CollectionLinksActivity.this);
+                outer.setPadding(0, 0, 0, UiKit.dp(CollectionLinksActivity.this, 8));
+
                 box = UiKit.horizontal(CollectionLinksActivity.this);
                 box.setGravity(Gravity.CENTER_VERTICAL);
+                box.setBackground(UiKit.roundRect(CollectionLinksActivity.this,
+                        UiKit.C.SURFACE, 12f));
+                box.setElevation(UiKit.dp(CollectionLinksActivity.this, 1.5f));
                 int p = UiKit.dp(CollectionLinksActivity.this, 12);
-                box.setPadding(p, UiKit.dp(CollectionLinksActivity.this, 10), p,
-                        UiKit.dp(CollectionLinksActivity.this, 10));
+                box.setPadding(p, UiKit.dp(CollectionLinksActivity.this, 11), p,
+                        UiKit.dp(CollectionLinksActivity.this, 11));
+                outer.addView(box);
 
-                idx = UiKit.text(CollectionLinksActivity.this, "", 13f);
-                idx.setAlpha(0.5f);
-                idx.setMinWidth(UiKit.dp(CollectionLinksActivity.this, 24));
+                idx = UiKit.text(CollectionLinksActivity.this, "", 12f);
+                idx.setTextColor(UiKit.C.TEXT_3);
+                idx.setTypeface(null, android.graphics.Typeface.BOLD);
+                idx.setMinWidth(UiKit.dp(CollectionLinksActivity.this, 20));
                 box.addView(idx);
 
-                LinearLayout mid = UiKit.vertical(CollectionLinksActivity.this);
-                title = UiKit.text(CollectionLinksActivity.this, "", 15f);
+                mid = UiKit.vertical(CollectionLinksActivity.this);
+
+                LinearLayout headRow = UiKit.horizontal(CollectionLinksActivity.this);
+                headRow.setGravity(Gravity.CENTER_VERTICAL);
+                badge = UiKit.badge(CollectionLinksActivity.this, "",
+                        Color.WHITE, UiKit.C.PRIMARY);
+                badge.setTextSize(10f);
+                headRow.addView(badge);
+                headRow.addView(UiKit.spacer(CollectionLinksActivity.this, 7, 1));
+                title = UiKit.text(CollectionLinksActivity.this, "", 14.5f);
+                title.setTextColor(UiKit.C.TEXT);
                 title.setMaxLines(2);
-                sub = UiKit.text(CollectionLinksActivity.this, "", 12f);
-                sub.setAlpha(0.6f);
+                headRow.addView(title, new LinearLayout.LayoutParams(
+                        0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+                mid.addView(headRow);
+
+                sub = UiKit.text(CollectionLinksActivity.this, "", 11.5f);
                 sub.setMaxLines(1);
-                mid.addView(title);
+                sub.setPadding(0, UiKit.dp(CollectionLinksActivity.this, 4), 0, 0);
                 mid.addView(sub);
+
                 box.addView(mid, new LinearLayout.LayoutParams(
                         0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
                 up = UiKit.smallButton(CollectionLinksActivity.this, "▲", null);
                 down = UiKit.smallButton(CollectionLinksActivity.this, "▼", null);
+                up.setTextSize(12f);
+                down.setTextSize(12f);
                 box.addView(up);
                 box.addView(down);
 
-                box.setTag(new View[]{idx, title, sub, up, down});
+                outer.setTag(new View[]{idx, badge, title, sub, up, down});
             } else {
-                box = (LinearLayout) convert;
-                View[] v = (View[]) box.getTag();
-                idx = (TextView) v[0]; title = (TextView) v[1];
-                sub = (TextView) v[2]; up = (TextView) v[3]; down = (TextView) v[4];
+                outer = (LinearLayout) convert;
+                box = (LinearLayout) outer.getChildAt(0);
+                mid = (LinearLayout) box.getChildAt(1);
+                View[] v = (View[]) outer.getTag();
+                idx = (TextView) v[0]; badge = (TextView) v[1];
+                title = (TextView) v[2]; sub = (TextView) v[3];
+                up = (TextView) v[4]; down = (TextView) v[5];
             }
 
             final LinkStore.Link l = data.get(pos);
             idx.setText(String.valueOf(pos + 1));
 
+            badge.setText(UiKit.C.sourceLabel(l.source));
+            badge.setBackground(UiKit.roundRect(CollectionLinksActivity.this,
+                    UiKit.C.sourceColor(l.source), 6f));
+
             String t = (l.title == null || l.title.trim().isEmpty()) ? l.url : l.title;
-            if (l.rating > 0) t = UiKit.ratingText(l.rating) + "  " + t;
+            if (l.rating > 0) t = UiKit.ratingText(l.rating) + " " + t;
             title.setText(t);
 
-            StringBuilder sb = new StringBuilder(l.source == null ? "" : l.source);
-            if (l.tags != null && !l.tags.isEmpty()) {
-                for (String g : l.tags) sb.append("  #").append(g);
+            // 副标题：彩色标签
+            android.text.SpannableStringBuilder sb = new android.text.SpannableStringBuilder();
+            if (l.tags != null) {
+                LinkStore store = LinkStore.get(CollectionLinksActivity.this);
+                for (int i = 0; i < l.tags.size(); i++) {
+                    if (i > 0) sb.append("  ");
+                    String g = l.tags.get(i);
+                    int start = sb.length();
+                    sb.append("#").append(g);
+                    int col = store.tagColor(g);
+                    sb.setSpan(new android.text.style.ForegroundColorSpan(
+                                    col != 0 ? col : UiKit.C.PRIMARY),
+                            start, sb.length(),
+                            android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                }
             }
-            sub.setText(sb.toString());
+            if (sb.length() == 0) {
+                sub.setVisibility(View.GONE);
+            } else {
+                sub.setVisibility(View.VISIBLE);
+                sub.setText(sb);
+            }
 
             up.setAlpha(pos == 0 ? 0.25f : 1f);
             down.setAlpha(pos == data.size() - 1 ? 0.25f : 1f);
@@ -178,7 +233,7 @@ public class CollectionLinksActivity extends Activity {
                 refresh();
             });
 
-            return box;
+            return outer;
         }
     }
 }
