@@ -2,7 +2,7 @@
 
 从任意 App（知乎、B站、小红书……）「分享」链接到本 App，集中管理并导出。
 
-纯 Android SDK 实现，**零第三方依赖**，可用 Termux 纯命令行构建，不需要 Android Studio / Gradle。
+纯 Android SDK 实现，**零第三方依赖**，可用 Termux / Linux / WSL 纯命令行构建，不需要 Android Studio / Gradle。
 
 ---
 
@@ -15,8 +15,13 @@
 | 自动标题 | HTTP 抓 `<title>` → 失败则隐藏 WebView 执行 JS 过反爬（**知乎实测可用**） |
 | 短链解析 | `b23.tv` / `xhslink.com` / `t.cn` 自动解析成真实 URL |
 | 跳转 | 点击条目按来源直接唤起知乎/B站 App（显式 Deep Link） |
-| 管理 | 长按：打开/复制/改标题/重新抓取/删除 |
-| 导出 | 系统分享面板输出 Markdown 列表 |
+| **标签** | 多标签扁平管理，用于检索；可重命名、删除、按标签筛选 |
+| **收藏夹** | 用户自建，**顺序可手动上下调整**（顺序即结构），用于收集材料并构建思想 |
+| **评分** | 每条 1~5 星，可按评分下限筛选 |
+| **评论** | 每条一段笔记，参与搜索 |
+| **检索** | 关键词（标题/链接/评论）× 标签 × 评分 × 收藏夹 组合过滤 |
+| 管理 | 长按：快速打标签 / 加入收藏夹 / 重新抓取 / 删除 |
+| 导出 | 系统分享面板输出 Markdown（含评分、标签、评论） |
 
 ---
 
@@ -59,12 +64,43 @@ export API_LEVEL=34
 
 ---
 
-## 在电脑上构建（Android Studio / Gradle）
+## 在电脑上构建（Linux / macOS / WSL）
 
-当前仓库是**手工构建结构**，没有 `build.gradle`。要在电脑上用：
+当前仓库是**手工构建结构**，没有 `build.gradle`。
 
-- **方案一**：装好 JDK + Android SDK 后照样跑 `./build.sh`（Linux/macOS/WSL 均可，改掉首行 shebang 即可）。
-- **方案二**：自己加 Gradle 外壳。`app/src/main/` 是标准 AGP 目录结构，补一个 `build.gradle` 和 `settings.gradle` 就能直接用。
+### 依赖
+
+```bash
+# JDK 17
+# Android SDK：build-tools 34.0.0 + platforms;android-34 + platform-tools
+sdkmanager "build-tools;34.0.0" "platforms;android-34" "platform-tools"
+export ANDROID_SDK_ROOT=$HOME/android-sdk
+export JAVA_HOME=/usr/lib/jvm/java-17-openjdk   # 举例
+./build.sh
+```
+
+`build.sh` 会自动从 `$ANDROID_SDK_ROOT/build-tools/34.0.0` 找 aapt2/d8/apksigner；
+找不到才回退 `PATH`（Termux 下用 `pkg` 装的版本）。
+
+没有 `zip` 命令时脚本会用 `python3 zipfile` 兜底，无需额外安装。
+
+### 在 WSL 里跑模拟器
+
+WSL2 需要嵌套虚拟化才有 `/dev/kvm`（否则模拟器慢到不可用）：
+
+```bash
+ls -l /dev/kvm          # 存在即可用 KVM 加速
+sdkmanager "emulator" "system-images;android-30;default;x86_64"
+avdmanager create avd -n test30 -k "system-images;android-30;default;x86_64"
+emulator -avd test30 -gpu swiftshader_indirect &
+adb install -r ContentManager-debug.apk
+```
+
+如果 `/dev/kvm` 不存在，在 Windows 的 `%UserProfile%\.wslconfig` 加
+`nestedVirtualization=true` 后 `wsl --shutdown` 重启。
+
+也可以让 Windows 侧的 adb 服务统一管理设备，WSL 里用：
+`adb -H <windows-ip> -P 5037 devices`（Windows 侧需先 `adb start-server`）。
 
 ---
 
@@ -72,21 +108,55 @@ export API_LEVEL=34
 
 ```
 ContentReader/
-├── build.sh                          # Termux 一键构建（含 --setup）
+├── build.sh                          # 一键构建（含 --setup）
 ├── .gitignore
 ├── README.md
 └── app/src/main/
     ├── AndroidManifest.xml           # 分享接收、权限、Activity 声明
     └── java/com/termux/contentmanager/
         ├── ShareActivity.java        # 接收分享 → 抽链 → 入库 → 后台抓标题
-        ├── MainActivity.java         # 列表 / 跳转 / 编辑 / 导出
+        ├── MainActivity.java         # 列表 / 搜索 / 筛选 / 跳转 / 导出
+        ├── LinkDetailActivity.java   # 详情：评分 / 评论 / 标签 / 收藏夹
+        ├── TagManagerActivity.java   # 标签管理：重命名 / 删除 / 按标签查条目
+        ├── CollectionActivity.java   # 收藏夹管理：新建 / 排序 / 删除
+        ├── CollectionLinksActivity.java # 收藏夹内条目列表（可排序）
+        ├── UiKit.java                # 纯代码 UI 工具（按钮/对话框/星级）
         ├── DebugShareActivity.java   # 调试：dump 分享 Intent 全部字段
         ├── LinkParser.java           # URL 提取、来源识别、标题推断
-        ├── LinkStore.java            # SQLite（单表 links，url 唯一索引）
+        ├── LinkStore.java            # SQLite（links/tags/link_tags/collections）
         ├── FetchTitle.java           # HTTP 抓 <title>（快速通道）
         ├── WebTitleFetcher.java      # 隐藏 WebView 抓标题（过 JS 反爬）
         └── TitleResolver.java        # 抓取调度：HTTP → WebView 降级
 ```
+
+## 数据模型
+
+```
+links           条目本体
+  id, url, title, source, created_at
+  comment, rating(0~5)          # 评论、评分
+  collection_id, order_in_collection   # 所属收藏夹及其内部顺序
+
+tags            标签（扁平，用于检索）
+  id, name (COLLATE NOCASE)
+
+link_tags       条目 ↔ 标签 多对多
+  link_id, tag_id
+
+collections     收藏夹（顺序即结构）
+  id, name, position            # position 决定展示顺序，用户可 ▲▼
+```
+
+数据库版本 v2 带 `onUpgrade` 迁移，v1 的旧数据会保留（只加列/建表）。
+
+## 标签 vs 收藏夹
+
+两者职责不同，刻意分开：
+
+- **标签**：横向的**管理维度**。一条内容可有多个标签，用于快速检索（「所有 #论文」）。
+- **收藏夹**：纵向的**组织容器**。一个条目只属于一个收藏夹，且**顺序有意义** —— 用来把零散材料排成一个论证结构。
+
+所以收藏夹有 `position` 且支持 ▲▼ 手动排序，标签没有顺序。
 
 ---
 

@@ -21,6 +21,34 @@
             </intent-filter>
         </activity>
 
+        <!-- 条目详情：评分 / 评论 / 标签 / 收藏夹 -->
+        <activity
+            android:name=".LinkDetailActivity"
+            android:exported="false"
+            android:label="详情"
+            android:parentActivityName=".MainActivity" />
+
+        <!-- 标签管理 -->
+        <activity
+            android:name=".TagManagerActivity"
+            android:exported="false"
+            android:label="标签管理"
+            android:parentActivityName=".MainActivity" />
+
+        <!-- 收藏夹管理（含手动排序） -->
+        <activity
+            android:name=".CollectionActivity"
+            android:exported="false"
+            android:label="收藏夹"
+            android:parentActivityName=".MainActivity" />
+
+        <!-- 收藏夹内的条目列表 -->
+        <activity
+            android:name=".CollectionLinksActivity"
+            android:exported="false"
+            android:label="收藏夹内容"
+            android:parentActivityName=".CollectionActivity" />
+
         <!-- 接收分享：不显示界面，处理完即退出 -->
         <activity
             android:name=".ShareActivity"
