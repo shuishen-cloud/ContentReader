@@ -21,7 +21,7 @@ import java.util.List;
 public class LinkStore extends SQLiteOpenHelper {
 
     private static final String DB = "content.db";
-    private static final int VERSION = 3;
+    private static final int VERSION = 4;
 
     /** 收藏夹未指定时的 id（NULL 语义用 0 表示"未归类"）。 */
     public static final long NO_COLLECTION = 0L;
@@ -36,6 +36,8 @@ public class LinkStore extends SQLiteOpenHelper {
         public String comment;
         /** 评分 0 表示未评分，否则 1~5 */
         public int rating;
+        /** 条目标记色（ARGB），0 表示无颜色 */
+        public int color;
         /** 该条目的标签名（列表展示用，按需加载） */
         public List<String> tags = new ArrayList<>();
         /** 所属收藏夹 id 列表（多对多，按需加载） */
@@ -50,6 +52,8 @@ public class LinkStore extends SQLiteOpenHelper {
         public long id;
         public String name;
         public int count;
+        /** 标签色（ARGB），0 表示无颜色 */
+        public int color;
     }
 
     public static class Collection {
@@ -57,6 +61,8 @@ public class LinkStore extends SQLiteOpenHelper {
         public String name;
         public int position;
         public int count;
+        /** 收藏夹色（ARGB），0 表示无颜色 */
+        public int color;
     }
 
     private static LinkStore instance;
@@ -75,7 +81,8 @@ public class LinkStore extends SQLiteOpenHelper {
         createBase(db);
         db.execSQL("CREATE TABLE tags ("
                 + "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-                + "name TEXT NOT NULL COLLATE NOCASE)");
+                + "name TEXT NOT NULL COLLATE NOCASE,"
+                + "color INTEGER NOT NULL DEFAULT 0)");
         db.execSQL("CREATE UNIQUE INDEX idx_tag_name ON tags(name COLLATE NOCASE)");
         db.execSQL("CREATE TABLE link_tags ("
                 + "link_id INTEGER NOT NULL,"
@@ -85,7 +92,8 @@ public class LinkStore extends SQLiteOpenHelper {
         db.execSQL("CREATE TABLE collections ("
                 + "id INTEGER PRIMARY KEY AUTOINCREMENT,"
                 + "name TEXT NOT NULL,"
-                + "position INTEGER NOT NULL DEFAULT 0)");
+                + "position INTEGER NOT NULL DEFAULT 0,"
+                + "color INTEGER NOT NULL DEFAULT 0)");
         db.execSQL("CREATE TABLE link_collections ("
                 + "link_id INTEGER NOT NULL,"
                 + "collection_id INTEGER NOT NULL,"
@@ -103,7 +111,8 @@ public class LinkStore extends SQLiteOpenHelper {
                 + "source TEXT,"
                 + "created_at INTEGER NOT NULL,"
                 + "comment TEXT,"
-                + "rating INTEGER NOT NULL DEFAULT 0)");
+                + "rating INTEGER NOT NULL DEFAULT 0,"
+                + "color INTEGER NOT NULL DEFAULT 0)");
         db.execSQL("CREATE UNIQUE INDEX idx_url ON links(url)");
     }
 
@@ -150,6 +159,29 @@ public class LinkStore extends SQLiteOpenHelper {
                             + "SELECT id, collection_id, 0 FROM links WHERE collection_id > 0");
                 } catch (Exception ignored2) { }
             }
+        }
+        if (oldV < 4) {
+            // v3 -> v4：条目 / 标签 / 收藏夹增加颜色列
+            addColumnIfMissing(db, "links", "color", "INTEGER NOT NULL DEFAULT 0");
+            addColumnIfMissing(db, "tags", "color", "INTEGER NOT NULL DEFAULT 0");
+            addColumnIfMissing(db, "collections", "color", "INTEGER NOT NULL DEFAULT 0");
+        }
+    }
+
+    /** 列不存在时才 ALTER（SQLite 不支持 IF NOT EXISTS 加列）。 */
+    private static void addColumnIfMissing(SQLiteDatabase db, String table,
+                                           String column, String decl) {
+        boolean exists = false;
+        try (Cursor c = db.rawQuery("PRAGMA table_info(" + table + ")", null)) {
+            int nameIdx = c.getColumnIndex("name");
+            while (c.moveToNext()) {
+                if (column.equalsIgnoreCase(c.getString(nameIdx))) { exists = true; break; }
+            }
+        } catch (Exception ignored) { }
+        if (!exists) {
+            try {
+                db.execSQL("ALTER TABLE " + table + " ADD COLUMN " + column + " " + decl);
+            } catch (Exception ignored) { }
         }
     }
 
@@ -235,6 +267,12 @@ public class LinkStore extends SQLiteOpenHelper {
         return out;
     }
 
+    /** 读 int 列，列不存在时返回默认值（兼容旧库尚未迁移的情况）。 */
+    private static int getIntSafe(Cursor c, String column) {
+        int idx = c.getColumnIndex(column);
+        return idx < 0 ? 0 : c.getInt(idx);
+    }
+
     private static Link readLink(Cursor c) {
         Link l = new Link();
         l.id = c.getLong(c.getColumnIndexOrThrow("id"));
@@ -244,6 +282,7 @@ public class LinkStore extends SQLiteOpenHelper {
         l.createdAt = c.getLong(c.getColumnIndexOrThrow("created_at"));
         l.comment = c.getString(c.getColumnIndexOrThrow("comment"));
         l.rating = c.getInt(c.getColumnIndexOrThrow("rating"));
+        l.color = getIntSafe(c, "color");
         return l;
     }
 
@@ -459,6 +498,48 @@ public class LinkStore extends SQLiteOpenHelper {
         }
     }
 
+    /** 设置条目标记色（0 = 无颜色）。 */
+    public void setLinkColor(long linkId, int color) {
+        ContentValues v = new ContentValues();
+        v.put("color", color);
+        getWritableDatabase().update("links", v, "id=?",
+                new String[]{String.valueOf(linkId)});
+    }
+
+    /** 设置标签颜色。 */
+    public void setTagColor(long tagId, int color) {
+        ContentValues v = new ContentValues();
+        v.put("color", color);
+        getWritableDatabase().update("tags", v, "id=?",
+                new String[]{String.valueOf(tagId)});
+    }
+
+    /** 设置收藏夹颜色。 */
+    public void setCollectionColor(long collectionId, int color) {
+        ContentValues v = new ContentValues();
+        v.put("color", color);
+        getWritableDatabase().update("collections", v, "id=?",
+                new String[]{String.valueOf(collectionId)});
+    }
+
+    /** 取某个标签的颜色（按名称）。没有则返回 0。 */
+    public int tagColor(String name) {
+        if (name == null || name.trim().isEmpty()) return 0;
+        try (Cursor c = getReadableDatabase().rawQuery(
+                "SELECT color FROM tags WHERE name = ? COLLATE NOCASE",
+                new String[]{name.trim()})) {
+            return c.moveToFirst() ? c.getInt(0) : 0;
+        }
+    }
+
+    /** 取某组标签名对应的颜色（与入参同序）。 */
+    public List<Integer> tagColors(List<String> names) {
+        List<Integer> out = new ArrayList<>();
+        if (names == null) return out;
+        for (String n : names) out.add(tagColor(n));
+        return out;
+    }
+
     public void deleteAll() {
         SQLiteDatabase db = getWritableDatabase();
         db.delete("link_tags", null, null);
@@ -471,7 +552,7 @@ public class LinkStore extends SQLiteOpenHelper {
     /** 取所有标签（含使用计数），按使用次数倒序。 */
     public List<Tag> listTags() {
         List<Tag> out = new ArrayList<>();
-        String sql = "SELECT t.id, t.name, "
+        String sql = "SELECT t.id, t.name, t.color, "
                 + "(SELECT COUNT(*) FROM link_tags lt WHERE lt.tag_id=t.id) AS cnt "
                 + "FROM tags t ORDER BY cnt DESC, t.name COLLATE NOCASE";
         try (Cursor c = getReadableDatabase().rawQuery(sql, null)) {
@@ -479,7 +560,8 @@ public class LinkStore extends SQLiteOpenHelper {
                 Tag t = new Tag();
                 t.id = c.getLong(0);
                 t.name = c.getString(1);
-                t.count = c.getInt(2);
+                t.color = c.getInt(2);
+                t.count = c.getInt(3);
                 out.add(t);
             }
         }
@@ -596,7 +678,7 @@ public class LinkStore extends SQLiteOpenHelper {
     /** 按 position 升序取全部收藏夹（含条目数）。 */
     public List<Collection> listCollections() {
         List<Collection> out = new ArrayList<>();
-        String sql = "SELECT c.id, c.name, c.position, "
+        String sql = "SELECT c.id, c.name, c.position, c.color, "
                 + "(SELECT COUNT(*) FROM link_collections lc WHERE lc.collection_id=c.id) AS cnt "
                 + "FROM collections c ORDER BY c.position ASC, c.id ASC";
         try (Cursor c = getReadableDatabase().rawQuery(sql, null)) {
@@ -605,7 +687,8 @@ public class LinkStore extends SQLiteOpenHelper {
                 col.id = c.getLong(0);
                 col.name = c.getString(1);
                 col.position = c.getInt(2);
-                col.count = c.getInt(3);
+                col.color = c.getInt(3);
+                col.count = c.getInt(4);
                 out.add(col);
             }
         }

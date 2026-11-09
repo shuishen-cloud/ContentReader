@@ -97,7 +97,7 @@ public class CollectionActivity extends Activity {
     }
 
     private void showMenu(final LinkStore.Collection c) {
-        String[] items = {"查看条目", "重命名", "上移", "下移", "删除收藏夹"};
+        String[] items = {"查看条目", "重命名", "设置颜色", "上移", "下移", "删除收藏夹"};
         new AlertDialog.Builder(this)
                 .setTitle(c.name)
                 .setItems(items, (d, which) -> {
@@ -111,14 +111,20 @@ public class CollectionActivity extends Activity {
                             });
                             break;
                         case 2:
+                            UiKit.pickColor(this, "收藏夹颜色", c.color, color -> {
+                                LinkStore.get(this).setCollectionColor(c.id, color);
+                                refresh();
+                            });
+                            break;
+                        case 3:
                             LinkStore.get(this).moveCollection(c.id, -1);
                             refresh();
                             break;
-                        case 3:
+                        case 4:
                             LinkStore.get(this).moveCollection(c.id, 1);
                             refresh();
                             break;
-                        case 4:
+                        case 5:
                             new AlertDialog.Builder(this)
                                     .setTitle("删除收藏夹「" + c.name + "」？")
                                     .setMessage("其中的 " + c.count
@@ -143,6 +149,7 @@ public class CollectionActivity extends Activity {
         @Override
         public View getView(int pos, View convert, ViewGroup parent) {
             LinearLayout box;
+            View dot;
             TextView idx, name, count, up, down;
             if (convert == null) {
                 box = UiKit.horizontal(CollectionActivity.this);
@@ -155,6 +162,14 @@ public class CollectionActivity extends Activity {
                 idx.setAlpha(0.5f);
                 idx.setMinWidth(UiKit.dp(CollectionActivity.this, 24));
                 box.addView(idx);
+
+                dot = UiKit.colorDot(CollectionActivity.this, 0, 14);
+                LinearLayout.LayoutParams dotLp = new LinearLayout.LayoutParams(
+                        UiKit.dp(CollectionActivity.this, 14),
+                        UiKit.dp(CollectionActivity.this, 14));
+                dotLp.rightMargin = UiKit.dp(CollectionActivity.this, 10);
+                dotLp.gravity = Gravity.CENTER_VERTICAL;
+                box.addView(dot, dotLp);
 
                 LinearLayout mid = UiKit.vertical(CollectionActivity.this);
                 name = UiKit.text(CollectionActivity.this, "", 15f);
@@ -170,18 +185,30 @@ public class CollectionActivity extends Activity {
                 box.addView(up);
                 box.addView(down);
 
-                box.setTag(new View[]{idx, name, count, up, down});
+                box.setTag(new View[]{idx, dot, name, count, up, down});
             } else {
                 box = (LinearLayout) convert;
                 View[] v = (View[]) box.getTag();
-                idx = (TextView) v[0]; name = (TextView) v[1];
-                count = (TextView) v[2]; up = (TextView) v[3]; down = (TextView) v[4];
+                idx = (TextView) v[0]; dot = v[1]; name = (TextView) v[2];
+                count = (TextView) v[3]; up = (TextView) v[4]; down = (TextView) v[5];
             }
 
             final LinkStore.Collection c = data.get(pos);
             idx.setText(String.valueOf(pos + 1));
             name.setText(c.name);
             count.setText(c.count + " 条");
+
+            android.graphics.drawable.GradientDrawable g =
+                    new android.graphics.drawable.GradientDrawable();
+            g.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+            if (c.color == 0) {
+                g.setColor(0x00000000);
+                g.setStroke(UiKit.dp(CollectionActivity.this, 1.5f), 0x66757575);
+            } else {
+                g.setColor(c.color);
+                g.setStroke(UiKit.dp(CollectionActivity.this, 1), 0x33000000);
+            }
+            dot.setBackground(g);
 
             up.setAlpha(pos == 0 ? 0.25f : 1f);
             down.setAlpha(pos == data.size() - 1 ? 0.25f : 1f);

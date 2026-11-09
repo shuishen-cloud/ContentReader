@@ -291,7 +291,7 @@ public class MainActivity extends Activity {
 
     private void showItemMenu(final LinkStore.Link l) {
         String[] items = {"查看 / 编辑详情", "打开链接", "复制链接", "快速打标签",
-                "加入收藏夹", "重新获取标题", "删除"};
+                "加入收藏夹", "设置颜色", "重新获取标题", "删除"};
         new AlertDialog.Builder(this)
                 .setTitle(l.title == null ? l.url : l.title)
                 .setItems(items, (d, which) -> {
@@ -301,8 +301,9 @@ public class MainActivity extends Activity {
                         case 2: copy(l); break;
                         case 3: quickTag(l); break;
                         case 4: toggleCollections(l); break;
-                        case 5: refetchTitle(l); break;
-                        case 6:
+                        case 5: pickLinkColor(l); break;
+                        case 6: refetchTitle(l); break;
+                        case 7:
                             LinkStore.get(this).delete(l.id);
                             refresh();
                             break;
@@ -374,6 +375,15 @@ public class MainActivity extends Activity {
                 })
                 .setNegativeButton("取消", null)
                 .show();
+    }
+
+    /** 设置条目标记色。 */
+    private void pickLinkColor(final LinkStore.Link l) {
+        UiKit.pickColor(this, "标记颜色", l.color, color -> {
+            l.color = color;
+            LinkStore.get(this).setLinkColor(l.id, color);
+            adapter.notifyDataSetChanged();
+        });
     }
 
     private void refetchTitle(final LinkStore.Link l) {
@@ -493,14 +503,26 @@ public class MainActivity extends Activity {
 
         @Override
         public View getView(int pos, View convert, ViewGroup parent) {
+            LinearLayout row;
+            View colorBar;
             LinearLayout box;
             TextView title, meta, tags, comment;
             if (convert == null) {
+                // 外层横向：左侧色条 + 右侧内容
+                row = UiKit.horizontal(MainActivity.this);
+
+                colorBar = new View(MainActivity.this);
+                row.addView(colorBar, new LinearLayout.LayoutParams(
+                        UiKit.dp(MainActivity.this, 4),
+                        ViewGroup.LayoutParams.MATCH_PARENT));
+
                 box = UiKit.vertical(MainActivity.this);
-                box.setPadding(UiKit.dp(MainActivity.this, 16),
+                box.setPadding(UiKit.dp(MainActivity.this, 14),
                         UiKit.dp(MainActivity.this, 10),
                         UiKit.dp(MainActivity.this, 16),
                         UiKit.dp(MainActivity.this, 10));
+                row.addView(box, new LinearLayout.LayoutParams(
+                        0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
                 title = UiKit.text(MainActivity.this, "", 15f);
                 title.setMaxLines(2);
@@ -521,14 +543,19 @@ public class MainActivity extends Activity {
                 comment.setMaxLines(2);
                 box.addView(comment);
 
-                box.setTag(new TextView[]{title, meta, tags, comment});
+                row.setTag(new Object[]{colorBar, title, meta, tags, comment});
             } else {
-                box = (LinearLayout) convert;
-                TextView[] v = (TextView[]) box.getTag();
-                title = v[0]; meta = v[1]; tags = v[2]; comment = v[3];
+                row = (LinearLayout) convert;
+                Object[] v = (Object[]) row.getTag();
+                colorBar = (View) v[0];
+                title = (TextView) v[1]; meta = (TextView) v[2];
+                tags = (TextView) v[3]; comment = (TextView) v[4];
             }
 
             LinkStore.Link l = data.get(pos);
+
+            // 左侧色条：无颜色时透明占位，保持左边距一致
+            colorBar.setBackgroundColor(l.color == 0 ? 0x00000000 : l.color);
 
             String t = (l.title == null || l.title.trim().isEmpty())
                     ? (l.fetching ? "（正在获取标题…）" : l.url)
@@ -551,12 +578,21 @@ public class MainActivity extends Activity {
                 tags.setVisibility(View.GONE);
             } else {
                 tags.setVisibility(View.VISIBLE);
-                StringBuilder sb = new StringBuilder();
-                for (String g : l.tags) {
-                    if (sb.length() > 0) sb.append(' ');
+                android.text.SpannableStringBuilder sb = new android.text.SpannableStringBuilder();
+                LinkStore store = LinkStore.get(MainActivity.this);
+                for (int i = 0; i < l.tags.size(); i++) {
+                    if (i > 0) sb.append(' ');
+                    String g = l.tags.get(i);
+                    int start = sb.length();
                     sb.append('#').append(g);
+                    int col = store.tagColor(g);
+                    if (col != 0) {
+                        sb.setSpan(new android.text.style.ForegroundColorSpan(col),
+                                start, sb.length(),
+                                android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                    }
                 }
-                tags.setText(sb.toString());
+                tags.setText(sb);
             }
 
             if (l.comment == null || l.comment.trim().isEmpty()) {
@@ -567,7 +603,7 @@ public class MainActivity extends Activity {
                 comment.setText("💬 " + (c.length() > 60 ? c.substring(0, 60) + "…" : c));
             }
 
-            return box;
+            return row;
         }
     }
 }

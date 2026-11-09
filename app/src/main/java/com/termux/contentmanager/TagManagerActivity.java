@@ -68,7 +68,7 @@ public class TagManagerActivity extends Activity {
     }
 
     private void showMenu(final LinkStore.Tag t) {
-        String[] items = {"重命名", "删除标签"};
+        String[] items = {"重命名", "设置颜色", "删除标签"};
         new AlertDialog.Builder(this)
                 .setTitle("#" + t.name)
                 .setItems(items, (d, which) -> {
@@ -76,6 +76,11 @@ public class TagManagerActivity extends Activity {
                         UiKit.promptText(this, "重命名标签", t.name, "新名称", false, s -> {
                             if (s.isEmpty()) return;
                             LinkStore.get(this).renameTag(t.id, s);
+                            refresh();
+                        });
+                    } else if (which == 1) {
+                        UiKit.pickColor(this, "标签颜色", t.color, color -> {
+                            LinkStore.get(this).setTagColor(t.id, color);
                             refresh();
                         });
                     } else {
@@ -127,6 +132,7 @@ public class TagManagerActivity extends Activity {
         @Override
         public View getView(int pos, View convert, ViewGroup parent) {
             android.widget.LinearLayout box;
+            View dot;
             TextView name, count;
             if (convert == null) {
                 box = UiKit.horizontal(TagManagerActivity.this);
@@ -135,6 +141,15 @@ public class TagManagerActivity extends Activity {
                 box.setPadding(p, UiKit.dp(TagManagerActivity.this, 12), p,
                         UiKit.dp(TagManagerActivity.this, 12));
 
+                dot = UiKit.colorDot(TagManagerActivity.this, 0, 14);
+                android.widget.LinearLayout.LayoutParams dotLp =
+                        new android.widget.LinearLayout.LayoutParams(
+                                UiKit.dp(TagManagerActivity.this, 14),
+                                UiKit.dp(TagManagerActivity.this, 14));
+                dotLp.rightMargin = UiKit.dp(TagManagerActivity.this, 10);
+                dotLp.gravity = Gravity.CENTER_VERTICAL;
+                box.addView(dot, dotLp);
+
                 name = UiKit.text(TagManagerActivity.this, "", 15f);
                 box.addView(name, new android.widget.LinearLayout.LayoutParams(
                         0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
@@ -142,15 +157,28 @@ public class TagManagerActivity extends Activity {
                 count = UiKit.text(TagManagerActivity.this, "", 12f);
                 count.setAlpha(0.6f);
                 box.addView(count);
-                box.setTag(new TextView[]{name, count});
+                box.setTag(new View[]{dot, name, count});
             } else {
                 box = (android.widget.LinearLayout) convert;
-                TextView[] v = (TextView[]) box.getTag();
-                name = v[0]; count = v[1];
+                View[] v = (View[]) box.getTag();
+                dot = v[0]; name = (TextView) v[1]; count = (TextView) v[2];
             }
             LinkStore.Tag t = data.get(pos);
             name.setText("#" + t.name);
             count.setText(t.count + " 条");
+
+            // 色点
+            android.graphics.drawable.GradientDrawable g =
+                    new android.graphics.drawable.GradientDrawable();
+            g.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+            if (t.color == 0) {
+                g.setColor(0x00000000);
+                g.setStroke(UiKit.dp(TagManagerActivity.this, 1.5f), 0x66757575);
+            } else {
+                g.setColor(t.color);
+                g.setStroke(UiKit.dp(TagManagerActivity.this, 1), 0x33000000);
+            }
+            dot.setBackground(g);
             return box;
         }
     }

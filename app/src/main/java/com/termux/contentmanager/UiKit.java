@@ -148,4 +148,67 @@ public final class UiKit {
         for (int i = 0; i < 5; i++) sb.append(i < rating ? '★' : '☆');
         return sb.toString();
     }
+
+    // ---------------------------------------------------------------- 颜色
+
+    /** 调色板：名称 + ARGB。0 表示「无颜色」。 */
+    public static final String[] COLOR_NAMES = {
+            "无颜色", "红", "橙", "黄", "绿", "青", "蓝", "紫", "粉", "灰"
+    };
+    public static final int[] COLOR_VALUES = {
+            0x00000000,
+            0xFFE53935, // 红
+            0xFFFB8C00, // 橙
+            0xFFFDD835, // 黄
+            0xFF43A047, // 绿
+            0xFF00ACC1, // 青
+            0xFF1E88E5, // 蓝
+            0xFF8E24AA, // 紫
+            0xFFD81B60, // 粉
+            0xFF757575, // 灰
+    };
+
+    /** 颜色名（用于对话框显示），未知值返回「自定义」。 */
+    public static String colorName(int color) {
+        for (int i = 0; i < COLOR_VALUES.length; i++) {
+            if (COLOR_VALUES[i] == color) return COLOR_NAMES[i];
+        }
+        return "自定义";
+    }
+
+    /** 颜色圆点视图，color 为 0 时显示描边空心圈。 */
+    public static View colorDot(Context c, int color, int sizeDp) {
+        int size = dp(c, sizeDp);
+        android.graphics.drawable.GradientDrawable g = new android.graphics.drawable.GradientDrawable();
+        g.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+        if (color == 0) {
+            g.setColor(0x00000000);
+            g.setStroke(dp(c, 1.5f), 0x66757575);
+        } else {
+            g.setColor(color);
+            g.setStroke(dp(c, 1), 0x33000000);
+        }
+        View v = new View(c);
+        v.setBackground(g);
+        v.setLayoutParams(new ViewGroup.LayoutParams(size, size));
+        return v;
+    }
+
+    /** 选色回调。 */
+    public interface OnColor {
+        void onColor(int color);
+    }
+
+    /** 颜色选择对话框：列出调色板，每行一个圆点 + 名称。 */
+    public static void pickColor(Context c, String title, int current, OnColor cb) {
+        String[] items = new String[COLOR_NAMES.length];
+        for (int i = 0; i < COLOR_NAMES.length; i++) {
+            items[i] = (COLOR_VALUES[i] == current ? "✓ " : "   ") + COLOR_NAMES[i];
+        }
+        new AlertDialog.Builder(c)
+                .setTitle(title)
+                .setItems(items, (d, which) -> cb.onColor(COLOR_VALUES[which]))
+                .setNegativeButton("取消", null)
+                .show();
+    }
 }

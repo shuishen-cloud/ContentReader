@@ -82,6 +82,7 @@ public class LinkDetailActivity extends Activity {
         actions.addView(UiKit.smallButton(this, "打开", v -> openLink()));
         actions.addView(UiKit.smallButton(this, "复制", v -> copyUrl()));
         actions.addView(UiKit.smallButton(this, "重新获取标题", v -> refetchTitle()));
+        actions.addView(UiKit.smallButton(this, "颜色", v -> pickColor()));
         root.addView(actions);
 
         addDivider(root);
@@ -187,12 +188,20 @@ public class LinkDetailActivity extends Activity {
             tagsView.setText("（无标签，点「编辑」添加）");
             tagsView.setAlpha(0.5f);
         } else {
-            StringBuilder sb = new StringBuilder();
-            for (String t : tags) {
-                if (sb.length() > 0) sb.append("  ");
+            android.text.SpannableStringBuilder sb = new android.text.SpannableStringBuilder();
+            for (int i = 0; i < tags.size(); i++) {
+                if (i > 0) sb.append("  ");
+                String t = tags.get(i);
+                int start = sb.length();
                 sb.append("#").append(t);
+                int col = store.tagColor(t);
+                if (col != 0) {
+                    sb.setSpan(new android.text.style.ForegroundColorSpan(col),
+                            start, sb.length(),
+                            android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                }
             }
-            tagsView.setText(sb.toString());
+            tagsView.setText(sb);
             tagsView.setAlpha(1f);
         }
     }
@@ -340,6 +349,15 @@ public class LinkDetailActivity extends Activity {
             cm.setPrimaryClip(ClipData.newPlainText("url", link.url));
             Toast.makeText(this, "已复制链接", Toast.LENGTH_SHORT).show();
         }
+    }
+
+    /** 设置条目标记色。 */
+    private void pickColor() {
+        UiKit.pickColor(this, "标记颜色", link.color, color -> {
+            link.color = color;
+            store.setLinkColor(link.id, color);
+            Toast.makeText(this, "已设为" + UiKit.colorName(color), Toast.LENGTH_SHORT).show();
+        });
     }
 
     private void refetchTitle() {

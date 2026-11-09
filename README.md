@@ -20,6 +20,7 @@
 | **评分** | 每条 1~5 星，可按评分下限筛选 |
 | **评论** | 每条一段笔记，参与搜索 |
 | **检索** | 关键词（标题/链接/评论）× 标签 × 评分 × 收藏夹 组合过滤 |
+| **颜色** | 条目 / 标签 / 收藏夹均可配色：条目标记色显示为左侧色条，标签色显示在标签文字上 |
 | 管理 | 长按：快速打标签 / 加入收藏夹 / 重新抓取 / 删除 |
 | 导出 | 系统分享面板输出 Markdown（含评分、标签、评论） |
 
@@ -134,27 +135,36 @@ ContentReader/
 ```
 links           条目本体
   id, url, title, source, created_at
-  comment, rating(0~5)          # 评论、评分
-  collection_id, order_in_collection   # 所属收藏夹及其内部顺序
+  comment, rating(0~5)   # 评论、评分
+  color                  # 标记色（ARGB），0 = 无颜色
 
 tags            标签（扁平，用于检索）
-  id, name (COLLATE NOCASE)
+  id, name (COLLATE NOCASE), color
 
 link_tags       条目 ↔ 标签 多对多
   link_id, tag_id
 
 collections     收藏夹（顺序即结构）
-  id, name, position            # position 决定展示顺序，用户可 ▲▼
+  id, name, position, color     # position 决定展示顺序，用户可 ▲▼
+
+link_collections  条目 ↔ 收藏夹 多对多
+  link_id, collection_id, position   # position 决定条目在收藏夹内的顺序
 ```
 
-数据库版本 v2 带 `onUpgrade` 迁移，v1 的旧数据会保留（只加列/建表）。
+数据库版本 v4，带 `onUpgrade` 迁移，旧数据全部保留：
+
+| 版本 | 变更 |
+|---|---|
+| v2 | 加 `comment` / `rating`；建 `tags` / `link_tags` / `collections` |
+| v3 | 单列 `collection_id` → 多对多 `link_collections`（旧数据自动搬迁） |
+| v4 | 加 `color`（links / tags / collections）；用 `PRAGMA table_info` 判断后再 ALTER |
 
 ## 标签 vs 收藏夹
 
 两者职责不同，刻意分开：
 
 - **标签**：横向的**管理维度**。一条内容可有多个标签，用于快速检索（「所有 #论文」）。
-- **收藏夹**：纵向的**组织容器**。一个条目只属于一个收藏夹，且**顺序有意义** —— 用来把零散材料排成一个论证结构。
+- **收藏夹**：纵向的**组织容器**。条目可**同时属于多个收藏夹**（多对多），且在**每个收藏夹内各有独立顺序** —— 用来把零散材料排成一个论证结构。
 
 所以收藏夹有 `position` 且支持 ▲▼ 手动排序，标签没有顺序。
 
