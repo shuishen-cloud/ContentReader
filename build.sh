@@ -40,7 +40,7 @@ KEYSTORE="$ROOT/debug.keystore"
 KS_PASS="android"
 KS_ALIAS="androiddebugkey"
 # 产物文件名里的版本，与 AndroidManifest.xml 的 versionName 保持一致
-VERSION="${VERSION:-1.0.0}"
+VERSION="${VERSION:-1.0.1}"
 
 # ---------------------------------------------------------------- 环境准备
 setup_env() {
