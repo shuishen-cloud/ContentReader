@@ -5,8 +5,13 @@
 # SDK:  $ANDROID_SDK_ROOT/platforms/android-$API_LEVEL/android.jar
 #
 # 用法:
-#   ./build.sh              正常构建
+#   ./build.sh              debug 构建（自动生成 debug.keystore，产物 *-debug.apk）
+#   ./build.sh --release    release 构建（用 release.keystore，产物 ContentManager-<版本>.apk）
 #   ./build.sh --setup      自动下载 android.jar 并安装依赖工具
+#
+# release keystore 可通过环境变量覆盖:
+#   RELEASE_KEYSTORE / RELEASE_KS_PASS / RELEASE_KS_ALIAS
+# 首次 --release 会自动生成 release.keystore（不入库，请自行备份）。
 #
 set -euo pipefail
 
@@ -34,6 +39,8 @@ OUT="$ROOT/build"
 KEYSTORE="$ROOT/debug.keystore"
 KS_PASS="android"
 KS_ALIAS="androiddebugkey"
+# 产物文件名里的版本，与 AndroidManifest.xml 的 versionName 保持一致
+VERSION="${VERSION:-1.0.0}"
 
 # ---------------------------------------------------------------- 环境准备
 setup_env() {
@@ -100,9 +107,26 @@ PY
   echo "==> android.jar 就绪: $PLATFORM"
 }
 
-if [ "${1:-}" = "--setup" ]; then
+RELEASE=0
+for a in "$@"; do
+  case "$a" in
+    --setup) SETUP=1 ;;
+    --release) RELEASE=1 ;;
+  esac
+done
+if [ "${SETUP:-0}" = "1" ]; then
   setup_env
   echo
+fi
+
+# release 模式下用另一套 keystore 与产物名
+if [ "$RELEASE" = "1" ]; then
+  KEYSTORE="${RELEASE_KEYSTORE:-$ROOT/release.keystore}"
+  KS_PASS="${RELEASE_KS_PASS:-android}"
+  KS_ALIAS="${RELEASE_KS_ALIAS:-contentmanager}"
+  OUT_APK="$ROOT/ContentManager-$VERSION.apk"
+else
+  OUT_APK="$ROOT/ContentManager-debug.apk"
 fi
 
 # ---------------------------------------------------------------- 前置检查
@@ -180,16 +204,23 @@ fi
 # ---------------------------------------------------------------- 6. 签名
 echo "==> 6/6 签名"
 if [ ! -f "$KEYSTORE" ]; then
-  echo "    生成 debug keystore（首次构建）"
+  if [ "$RELEASE" = "1" ]; then
+    echo "    生成 release keystore（首次 --release）"
+    echo "    ⚠ 请备份 $KEYSTORE —— 丢失后无法再对已发布的 APK 做覆盖升级"
+    DN="CN=ContentManager,O=ContentManager,C=CN"
+  else
+    echo "    生成 debug keystore（首次构建）"
+    DN="CN=Android Debug,O=Android,C=US"
+  fi
   keytool -genkeypair -v -keystore "$KEYSTORE" -storepass "$KS_PASS" \
     -keypass "$KS_PASS" -alias "$KS_ALIAS" -keyalg RSA -keysize 2048 \
-    -validity 10000 -dname "CN=Android Debug,O=Android,C=US" >/dev/null 2>&1
+    -validity 10000 -dname "$DN" >/dev/null 2>&1
 fi
 "$APKSIGNER" sign --ks "$KEYSTORE" --ks-pass "pass:$KS_PASS" \
   --key-pass "pass:$KS_PASS" --ks-key-alias "$KS_ALIAS" \
-  --out "$ROOT/ContentManager-debug.apk" "$OUT/unsigned.apk"
-"$APKSIGNER" verify --verbose "$ROOT/ContentManager-debug.apk" | head -5
+  --out "$OUT_APK" "$OUT/unsigned.apk"
+"$APKSIGNER" verify --verbose "$OUT_APK" | head -5
 
 echo
-echo "✅ 构建完成: $ROOT/ContentManager-debug.apk"
-ls -lh "$ROOT/ContentManager-debug.apk"
+echo "✅ 构建完成: $OUT_APK"
+ls -lh "$OUT_APK"
