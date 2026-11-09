@@ -2,14 +2,20 @@ package com.termux.contentmanager;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.res.ColorStateList;
+import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.RippleDrawable;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.Gravity;
+import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
+import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -36,6 +42,7 @@ public class LinkDetailActivity extends Activity {
     private TextView urlView;
     private LinearLayout starRow;
     private TextView tagsView;
+    private TextView ratingLabel;
     private TextView collectionView;
     private EditText commentBox;
 
@@ -55,94 +62,190 @@ public class LinkDetailActivity extends Activity {
         }
 
         ScrollView scroll = new ScrollView(this);
+        scroll.setBackgroundColor(UiKit.C.BG);
+
         LinearLayout root = UiKit.vertical(this);
-        int p = UiKit.dp(this, 16);
-        root.setPadding(p, p, p, p);
+        int p = UiKit.dp(this, 14);
+        root.setPadding(p, UiKit.dp(this, 12), p, UiKit.dp(this, 24));
 
-        // ---------- 标题
+        // ============================================ 卡片一：标题 + 链接 + 操作
+        LinearLayout headCard = UiKit.card(this);
+        LinearLayout headInner = UiKit.vertical(this);
+        headInner.setPadding(UiKit.dp(this, 16), UiKit.dp(this, 14),
+                UiKit.dp(this, 16), UiKit.dp(this, 12));
+        headCard.addView(headInner);
+
+        // 来源徽标行
+        LinearLayout srcRow = UiKit.horizontal(this);
+        srcRow.setGravity(Gravity.CENTER_VERTICAL);
+        TextView srcBadge = UiKit.badge(this, UiKit.C.sourceLabel(link.source),
+                Color.WHITE, UiKit.C.sourceColor(link.source));
+        srcRow.addView(srcBadge);
+        srcRow.addView(UiKit.spacer(this, 8, 1));
+        TextView colorDotView = UiKit.text(this, "●", 13f);
+        colorDotView.setTextColor(link.color == 0 ? UiKit.C.TEXT_3 : link.color);
+        srcRow.addView(colorDotView);
+        headInner.addView(srcRow);
+
+        // 标题
         titleView = UiKit.text(this, displayTitle(link), 18f);
-        titleView.setOnClickListener(v -> editTitle());
-        root.addView(titleView);
+        titleView.setTextColor(UiKit.C.TEXT);
+        titleView.setTypeface(null, android.graphics.Typeface.BOLD);
+        titleView.setLineSpacing(UiKit.dp(this, 2), 1f);
+        LinearLayout.LayoutParams tLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        tLp.topMargin = UiKit.dp(this, 10);
+        headInner.addView(titleView, tLp);
 
-        TextView hint = UiKit.text(this, "（点击标题可修改）", 11f);
-        hint.setAlpha(0.5f);
-        root.addView(hint);
+        // 链接
+        urlView = UiKit.text(this, link.url, 11.5f);
+        urlView.setTextColor(UiKit.C.PRIMARY);
+        urlView.setMaxLines(2);
+        LinearLayout.LayoutParams uLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        uLp.topMargin = UiKit.dp(this, 6);
+        headInner.addView(urlView, uLp);
 
-        // ---------- 链接
-        urlView = UiKit.text(this, link.url, 12f);
-        urlView.setAlpha(0.75f);
-        urlView.setPadding(0, UiKit.dp(this, 6), 0, 0);
-        urlView.setOnClickListener(v -> openLink());
-        root.addView(urlView);
-
-        // ---------- 操作条
+        // 操作按钮行（圆角 chip 风格，可横向滚动避免挤压换行）
+        HorizontalScrollView actionsScroll = new HorizontalScrollView(this);
+        actionsScroll.setHorizontalScrollBarEnabled(false);
         LinearLayout actions = UiKit.horizontal(this);
-        actions.setPadding(0, UiKit.dp(this, 6), 0, 0);
         actions.setGravity(Gravity.CENTER_VERTICAL);
-        actions.addView(UiKit.smallButton(this, "打开", v -> openLink()));
-        actions.addView(UiKit.smallButton(this, "复制", v -> copyUrl()));
-        actions.addView(UiKit.smallButton(this, "重新获取标题", v -> refetchTitle()));
-        actions.addView(UiKit.smallButton(this, "颜色", v -> pickColor()));
-        root.addView(actions);
+        LinearLayout.LayoutParams aLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        aLp.topMargin = UiKit.dp(this, 12);
+        actions.addView(actionChip("↗ 打开", UiKit.C.PRIMARY, v -> openLink()));
+        actions.addView(UiKit.spacer(this, 8, 1));
+        actions.addView(actionChip("⧉ 复制", UiKit.C.TEXT_2, v -> copyUrl()));
+        actions.addView(UiKit.spacer(this, 8, 1));
+        actions.addView(actionChip("⟳ 重抓", UiKit.C.ACCENT, v -> refetchTitle()));
+        actions.addView(UiKit.spacer(this, 8, 1));
+        actions.addView(actionChip("✎ 改标题", UiKit.C.TEXT_2, v -> editTitle()));
+        actions.addView(UiKit.spacer(this, 8, 1));
+        actions.addView(actionChip("◐ 颜色", UiKit.C.TEXT_2, v -> pickColor()));
+        actionsScroll.addView(actions);
+        headInner.addView(actionsScroll, aLp);
 
-        addDivider(root);
+        root.addView(headCard);
 
-        // ---------- 评分
-        root.addView(sectionLabel("评分（点击星星）"));
+        // ============================================ 卡片二：评分
+        LinearLayout rateCard = UiKit.card(this);
+        LinearLayout rateInner = UiKit.vertical(this);
+        rateInner.setPadding(UiKit.dp(this, 16), UiKit.dp(this, 12),
+                UiKit.dp(this, 16), UiKit.dp(this, 12));
+        rateCard.addView(rateInner);
+
+        LinearLayout rateTitle = UiKit.horizontal(this);
+        rateTitle.setGravity(Gravity.CENTER_VERTICAL);
+        TextView rt = UiKit.text(this, "★ 评分", 13f);
+        rt.setTextColor(UiKit.C.ACCENT);
+        rt.setTypeface(null, android.graphics.Typeface.BOLD);
+        rateTitle.addView(rt, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        ratingLabel = UiKit.text(this, link.rating == 0 ? "未评分" : link.rating + " 星", 12f);
+        ratingLabel.setTextColor(UiKit.C.TEXT_3);
+        rateTitle.addView(ratingLabel);
+        rateInner.addView(rateTitle);
+
         starRow = UiKit.starRow(this, link.rating, rating -> {
             link.rating = rating;
             store.updateCommentAndRating(link.id, textOf(commentBox), rating);
             UiKit.updateStars(starRow, rating);
+            ratingLabel.setText(rating == 0 ? "未评分" : rating + " 星");
         });
-        root.addView(starRow);
+        LinearLayout.LayoutParams sLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        sLp.topMargin = UiKit.dp(this, 6);
+        rateInner.addView(starRow, sLp);
+        root.addView(rateCard, cardLp());
 
-        addDivider(root);
+        // ============================================ 卡片三：标签 + 收藏夹
+        LinearLayout orgCard = UiKit.card(this);
+        LinearLayout orgInner = UiKit.vertical(this);
+        orgInner.setPadding(UiKit.dp(this, 16), UiKit.dp(this, 12),
+                UiKit.dp(this, 16), UiKit.dp(this, 12));
+        orgCard.addView(orgInner);
 
-        // ---------- 标签
-        LinearLayout tagHeader = UiKit.row(this, "标签");
-        tagHeader.addView(UiKit.smallButton(this, "编辑", v -> editTags()));
-        root.addView(tagHeader);
+        // 标签
+        LinearLayout tagHead = UiKit.horizontal(this);
+        tagHead.setGravity(Gravity.CENTER_VERTICAL);
+        TextView th = UiKit.text(this, "# 标签", 13f);
+        th.setTextColor(UiKit.C.PRIMARY);
+        th.setTypeface(null, android.graphics.Typeface.BOLD);
+        tagHead.addView(th, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        tagHead.addView(miniChip("编辑", UiKit.C.PRIMARY, v -> editTags()));
+        orgInner.addView(tagHead);
 
-        tagsView = UiKit.text(this, "", 14f);
-        tagsView.setPadding(0, UiKit.dp(this, 4), 0, 0);
-        root.addView(tagsView);
+        tagsView = UiKit.text(this, "", 13.5f);
+        LinearLayout.LayoutParams tgLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        tgLp.topMargin = UiKit.dp(this, 7);
+        orgInner.addView(tagsView, tgLp);
 
-        addDivider(root);
+        orgInner.addView(UiKit.divider(this), dividerLp());
 
-        // ---------- 收藏夹
-        LinearLayout colHeader = UiKit.row(this, "收藏夹");
-        colHeader.addView(UiKit.smallButton(this, "选择", v -> pickCollection()));
-        root.addView(colHeader);
+        // 收藏夹
+        LinearLayout colHead = UiKit.horizontal(this);
+        colHead.setGravity(Gravity.CENTER_VERTICAL);
+        TextView ch = UiKit.text(this, "▤ 收藏夹", 13f);
+        ch.setTextColor(UiKit.C.ACCENT);
+        ch.setTypeface(null, android.graphics.Typeface.BOLD);
+        colHead.addView(ch, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        colHead.addView(miniChip("选择", UiKit.C.ACCENT, v -> pickCollection()));
+        orgInner.addView(colHead);
 
-        collectionView = UiKit.text(this, "", 14f);
-        collectionView.setPadding(0, UiKit.dp(this, 4), 0, 0);
-        root.addView(collectionView);
+        collectionView = UiKit.text(this, "", 13.5f);
+        LinearLayout.LayoutParams cgLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        cgLp.topMargin = UiKit.dp(this, 7);
+        orgInner.addView(collectionView, cgLp);
+        root.addView(orgCard, cardLp());
 
-        addDivider(root);
+        // ============================================ 卡片四：评论
+        LinearLayout cmCard = UiKit.card(this);
+        LinearLayout cmInner = UiKit.vertical(this);
+        cmInner.setPadding(UiKit.dp(this, 16), UiKit.dp(this, 12),
+                UiKit.dp(this, 16), UiKit.dp(this, 12));
+        cmCard.addView(cmInner);
 
-        // ---------- 评论
-        root.addView(sectionLabel("评论 / 笔记"));
+        LinearLayout cmHead = UiKit.horizontal(this);
+        cmHead.setGravity(Gravity.CENTER_VERTICAL);
+        TextView cmh = UiKit.text(this, "💬 评论 / 笔记", 13f);
+        cmh.setTextColor(UiKit.C.SUCCESS);
+        cmh.setTypeface(null, android.graphics.Typeface.BOLD);
+        cmHead.addView(cmh, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        cmHead.addView(miniChip("保存", UiKit.C.SUCCESS, v -> saveComment()));
+        cmInner.addView(cmHead);
+
         commentBox = UiKit.editText(this,
                 link.comment == null ? "" : link.comment,
                 "写下你的想法……", true);
         commentBox.setTextSize(14f);
-        root.addView(commentBox, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        commentBox.setTextColor(UiKit.C.TEXT);
+        commentBox.setHintTextColor(UiKit.C.TEXT_3);
+        commentBox.setBackground(UiKit.roundRect(this, 0xFFF6F7FA, 10f));
+        commentBox.setPadding(UiKit.dp(this, 12), UiKit.dp(this, 10),
+                UiKit.dp(this, 12), UiKit.dp(this, 10));
+        LinearLayout.LayoutParams cbLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        cbLp.topMargin = UiKit.dp(this, 8);
+        cmInner.addView(commentBox, cbLp);
+        root.addView(cmCard, cardLp());
 
-        LinearLayout commentActions = UiKit.horizontal(this);
-        commentActions.setPadding(0, UiKit.dp(this, 8), 0, 0);
-        commentActions.addView(UiKit.smallButton(this, "保存评论", v -> saveComment()));
-        root.addView(commentActions);
-
-        addDivider(root);
-
-        // ---------- 元信息
-        TextView meta = UiKit.text(this, "来源：" + link.source
-                + "\n添加时间：" + new SimpleDateFormat("yyyy-MM-dd HH:mm",
-                Locale.getDefault()).format(new Date(link.createdAt)), 12f);
-        meta.setAlpha(0.6f);
-        meta.setPadding(0, UiKit.dp(this, 8), 0, 0);
-        root.addView(meta);
+        // ============================================ 元信息
+        TextView meta = UiKit.text(this,
+                "来源 " + UiKit.C.sourceLabel(link.source)
+                        + "   ·   添加于 " + new SimpleDateFormat("yyyy-MM-dd HH:mm",
+                        Locale.getDefault()).format(new Date(link.createdAt)), 11f);
+        meta.setTextColor(UiKit.C.TEXT_3);
+        meta.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams mLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        mLp.topMargin = UiKit.dp(this, 16);
+        root.addView(meta, mLp);
 
         scroll.addView(root);
         setContentView(scroll);
@@ -386,6 +489,47 @@ public class LinkDetailActivity extends Activity {
 
     private static String displayTitle(LinkStore.Link l) {
         return (l.title == null || l.title.trim().isEmpty()) ? l.url : l.title;
+    }
+
+    /** 卡片之间的上间距。 */
+    private LinearLayout.LayoutParams cardLp() {
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = UiKit.dp(this, 10);
+        return lp;
+    }
+
+    private LinearLayout.LayoutParams dividerLp() {
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, Math.max(1, UiKit.dp(this, 0.8f)));
+        lp.topMargin = UiKit.dp(this, 12);
+        lp.bottomMargin = UiKit.dp(this, 12);
+        return lp;
+    }
+
+    /** 操作按钮：圆角描边小胶囊。 */
+    private TextView actionChip(String text, int color, View.OnClickListener l) {
+        TextView t = UiKit.text(this, text, 12.5f);
+        t.setTextColor(color);
+        t.setPadding(UiKit.dp(this, 12), UiKit.dp(this, 7),
+                UiKit.dp(this, 12), UiKit.dp(this, 7));
+        GradientDrawable g = UiKit.roundRectStroke(this, 0xFFF6F7FA, 18f,
+                UiKit.C.DIVIDER, 1f);
+        t.setBackground(new RippleDrawable(ColorStateList.valueOf(0x22000000), g,
+                UiKit.roundRect(this, Color.WHITE, 18f)));
+        t.setOnClickListener(l);
+        return t;
+    }
+
+    /** 区块右侧的小按钮。 */
+    private TextView miniChip(String text, int color, View.OnClickListener l) {
+        TextView t = UiKit.text(this, text, 11.5f);
+        t.setTextColor(color);
+        t.setPadding(UiKit.dp(this, 10), UiKit.dp(this, 4),
+                UiKit.dp(this, 10), UiKit.dp(this, 4));
+        t.setBackground(UiKit.roundRect(this, 0xFFF3F5F9, 12f));
+        t.setOnClickListener(l);
+        return t;
     }
 
     private TextView sectionLabel(String s) {

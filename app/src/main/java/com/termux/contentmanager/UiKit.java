@@ -2,6 +2,12 @@ package com.termux.contentmanager;
 
 import android.app.AlertDialog;
 import android.content.Context;
+import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.RippleDrawable;
+import android.content.res.ColorStateList;
+import android.util.TypedValue;
+import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -14,6 +20,190 @@ import android.widget.TextView;
 public final class UiKit {
 
     private UiKit() {}
+
+    // ============================================================ 色彩
+
+    /** 全局配色：活泼但克制。 */
+    public static final class C {
+        /** 页面背景（浅灰蓝） */
+        public static final int BG = 0xFFF2F4F8;
+        /** 卡片 / 工具条背景 */
+        public static final int SURFACE = 0xFFFFFFFF;
+        /** 主色（亮蓝） */
+        public static final int PRIMARY = 0xFF4A7DFF;
+        /** 主色浅底（chip 选中、徽标底） */
+        public static final int PRIMARY_SOFT = 0xFFE8EEFF;
+        /** 强调色（珊瑚橙，用于评分与高亮） */
+        public static final int ACCENT = 0xFFFF8A3D;
+        public static final int ACCENT_SOFT = 0xFFFFF0E4;
+        /** 成功绿 */
+        public static final int SUCCESS = 0xFF2FBF71;
+        /** 危险红 */
+        public static final int DANGER = 0xFFF0564A;
+        public static final int DANGER_SOFT = 0xFFFFEBE9;
+
+        /** 主文字 */
+        public static final int TEXT = 0xFF1F2430;
+        /** 次文字 */
+        public static final int TEXT_2 = 0xFF6B7280;
+        /** 辅助文字 */
+        public static final int TEXT_3 = 0xFF9AA1AC;
+        /** 分隔线 */
+        public static final int DIVIDER = 0xFFE6E9EF;
+
+        /** 来源徽标配色（按来源取色）。 */
+        public static int sourceColor(String source) {
+            String s = source == null ? "" : source.toLowerCase();
+            switch (s) {
+                case "zhihu": return 0xFF1772F6;      // 知乎蓝
+                case "bilibili": return 0xFFFB7299;   // B站粉
+                case "xiaohongshu": return 0xFFFF2442; // 小红书红
+                case "weibo": return 0xFFFF8200;      // 微博橙
+                case "github": return 0xFF24292F;     // GitHub 黑
+                case "youtube": return 0xFFFF0033;
+                case "other": return 0xFF3AAFB0;      // 网址：青绿
+                default: return 0xFF3AAFB0;           // 未知来源：青绿
+            }
+        }
+
+        /** 来源显示名。 */
+        public static String sourceLabel(String source) {
+            String s = source == null ? "" : source.toLowerCase();
+            switch (s) {
+                case "zhihu": return "知乎";
+                case "bilibili": return "B站";
+                case "xiaohongshu": return "小红书";
+                case "weibo": return "微博";
+                case "github": return "GitHub";
+                case "youtube": return "YouTube";
+                case "other": return "网页";
+                default: return s.isEmpty() ? "网页" : s;
+            }
+        }
+    }
+
+    // ============================================================ 图形工具
+
+    /** 圆角矩形背景。 */
+    public static GradientDrawable roundRect(Context c, int fill, float radiusDp) {
+        GradientDrawable g = new GradientDrawable();
+        g.setShape(GradientDrawable.RECTANGLE);
+        g.setColor(fill);
+        g.setCornerRadius(dp(c, radiusDp));
+        return g;
+    }
+
+    /** 圆角矩形 + 描边。 */
+    public static GradientDrawable roundRectStroke(Context c, int fill,
+                                                   float radiusDp, int strokeColor,
+                                                   float strokeDp) {
+        GradientDrawable g = roundRect(c, fill, radiusDp);
+        g.setStroke(dp(c, strokeDp), strokeColor);
+        return g;
+    }
+
+    /** 带水波纹的圆角背景。 */
+    public static RippleDrawable ripple(Context c, int fill, float radiusDp, int rippleColor) {
+        GradientDrawable content = roundRect(c, fill, radiusDp);
+        GradientDrawable mask = roundRect(c, Color.WHITE, radiusDp);
+        return new RippleDrawable(ColorStateList.valueOf(rippleColor), content, mask);
+    }
+
+    /** 卡片：白底圆角 + 极轻阴影。 */
+    public static LinearLayout card(Context c) {
+        LinearLayout v = new LinearLayout(c);
+        v.setOrientation(LinearLayout.VERTICAL);
+        GradientDrawable bg = roundRect(c, C.SURFACE, 14f);
+        v.setBackground(bg);
+        v.setElevation(dp(c, 1.5f));
+        v.setClipToOutline(false);
+        return v;
+    }
+
+    /** 分隔线。 */
+    public static View divider(Context c) {
+        View v = new View(c);
+        v.setBackgroundColor(C.DIVIDER);
+        v.setLayoutParams(new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, Math.max(1, dp(c, 0.7f))));
+        return v;
+    }
+
+    /** 徽标：小圆角药丸，深色字 + 浅色底。 */
+    public static TextView badge(Context c, String text, int textColor, int bgColor) {
+        TextView t = new TextView(c);
+        t.setText(text);
+        t.setTextSize(11f);
+        t.setTextColor(textColor);
+        t.setPadding(dp(c, 7), dp(c, 2), dp(c, 7), dp(c, 2));
+        t.setBackground(roundRect(c, bgColor, 6f));
+        t.setGravity(Gravity.CENTER);
+        return t;
+    }
+
+    /** 筛选 chip：选中态实心主色，未选中描边。 */
+    public static TextView chip(Context c, String text, boolean active,
+                                View.OnClickListener l) {
+        TextView t = new TextView(c);
+        t.setText(text);
+        t.setTextSize(12.5f);
+        t.setPadding(dp(c, 13), dp(c, 7), dp(c, 13), dp(c, 7));
+        t.setGravity(Gravity.CENTER);
+        if (active) {
+            t.setTextColor(Color.WHITE);
+            t.setBackground(ripple(c, C.PRIMARY, 20f, 0x55FFFFFF));
+        } else {
+            t.setTextColor(C.TEXT_2);
+            t.setBackground(ripple(c, C.SURFACE, 20f, 0x22000000));
+            GradientDrawable g = roundRectStroke(c, C.SURFACE, 20f, C.DIVIDER, 1f);
+            t.setBackground(new RippleDrawable(
+                    ColorStateList.valueOf(0x22000000), g,
+                    roundRect(c, Color.WHITE, 20f)));
+        }
+        t.setOnClickListener(l);
+        return t;
+    }
+
+    /** 图标按钮：圆形/圆角底 + 符号，带水波纹。 */
+    public static TextView iconButton(Context c, String symbol, int sizeDp,
+                                      int textColor, View.OnClickListener l) {
+        TextView t = new TextView(c);
+        t.setText(symbol);
+        t.setTextSize(sizeDp * 0.5f);
+        t.setTextColor(textColor);
+        t.setGravity(Gravity.CENTER);
+        int box = dp(c, sizeDp);
+        t.setLayoutParams(new LinearLayout.LayoutParams(box, box));
+        t.setBackground(ripple(c, Color.TRANSPARENT, sizeDp / 2f, 0x22000000));
+        if (l != null) t.setOnClickListener(l);
+        return t;
+    }
+
+    /** 带底色的圆形图标（用于工具条上的主操作）。 */
+    public static TextView circleIcon(Context c, String symbol, int sizeDp,
+                                      int textColor, int bgColor,
+                                      View.OnClickListener l) {
+        TextView t = new TextView(c);
+        t.setText(symbol);
+        t.setTextSize(sizeDp * 0.42f);
+        t.setTextColor(textColor);
+        t.setGravity(Gravity.CENTER);
+        int box = dp(c, sizeDp);
+        t.setLayoutParams(new LinearLayout.LayoutParams(box, box));
+        t.setBackground(new RippleDrawable(
+                ColorStateList.valueOf(0x33FFFFFF),
+                roundRect(c, bgColor, sizeDp / 2f),
+                roundRect(c, Color.WHITE, sizeDp / 2f)));
+        if (l != null) t.setOnClickListener(l);
+        return t;
+    }
+
+    /** 水平间距占位。 */
+    public static View spacer(Context c, int wDp, int hDp) {
+        View v = new View(c);
+        v.setLayoutParams(new LinearLayout.LayoutParams(dp(c, wDp), dp(c, hDp)));
+        return v;
+    }
 
     public static int dp(Context c, float v) {
         return (int) (v * c.getResources().getDisplayMetrics().density + 0.5f);
@@ -114,7 +304,8 @@ public final class UiKit {
         for (int i = 0; i < 5; i++) {
             final int value = i + 1;
             TextView s = text(c, "☆", 26f);
-            s.setPadding(dp(c, 6), dp(c, 2), dp(c, 6), dp(c, 2));
+            s.setTextColor(C.ACCENT);
+            s.setPadding(dp(c, 8), dp(c, 2), dp(c, 8), dp(c, 2));
             s.setOnClickListener(v -> cb.onChange(value));
             stars[i] = s;
             row.addView(s);
@@ -133,7 +324,8 @@ public final class UiKit {
     private static void applyStars(TextView[] stars, int rating) {
         for (int i = 0; i < stars.length; i++) {
             stars[i].setText(i < rating ? "★" : "☆");
-            stars[i].setAlpha(i < rating ? 1f : 0.35f);
+            stars[i].setTextColor(C.ACCENT);
+            stars[i].setAlpha(i < rating ? 1f : 0.3f);
         }
     }
 

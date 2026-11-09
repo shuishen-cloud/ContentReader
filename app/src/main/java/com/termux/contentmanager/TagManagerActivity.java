@@ -2,6 +2,7 @@ package com.termux.contentmanager;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
@@ -26,14 +27,19 @@ public class TagManagerActivity extends Activity {
         super.onCreate(savedInstanceState);
 
         android.widget.LinearLayout root = UiKit.vertical(this);
-        int p = UiKit.dp(this, 8);
+        root.setBackgroundColor(UiKit.C.BG);
+        int p = UiKit.dp(this, 14);
 
-        TextView hint = UiKit.text(this, "标签用于检索。长按可重命名或删除。", 12f);
-        hint.setAlpha(0.65f);
-        hint.setPadding(p, p, p, p);
+        TextView hint = UiKit.text(this, "#  标签用于检索   长按可重命名 / 改色 / 删除", 12f);
+        hint.setTextColor(UiKit.C.TEXT_3);
+        hint.setPadding(p, UiKit.dp(this, 12), p, UiKit.dp(this, 8));
         root.addView(hint);
 
         ListView list = new ListView(this);
+        list.setDivider(null);
+        list.setDividerHeight(0);
+        list.setPadding(UiKit.dp(this, 14), 0, UiKit.dp(this, 14), UiKit.dp(this, 14));
+        list.setClipToPadding(false);
         adapter = new TagAdapter();
         list.setAdapter(adapter);
         list.setOnItemClickListener((vp, v, pos, id) -> showUsedLinks(data.get(pos)));
@@ -44,7 +50,9 @@ public class TagManagerActivity extends Activity {
         root.addView(list, new android.widget.LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
-        emptyView = UiKit.text(this, "还没有标签。\n在条目上长按 → 快速打标签。", 15f);
+        emptyView = UiKit.text(this, "#\n\n还没有标签\n在条目上长按 → 快速打标签", 14f);
+        emptyView.setTextColor(UiKit.C.TEXT_3);
+        emptyView.setGravity(Gravity.CENTER);
         int ep = UiKit.dp(this, 24);
         emptyView.setPadding(ep, ep, ep, ep);
         root.addView(emptyView);
@@ -131,15 +139,23 @@ public class TagManagerActivity extends Activity {
 
         @Override
         public View getView(int pos, View convert, ViewGroup parent) {
+            android.widget.LinearLayout outer;
             android.widget.LinearLayout box;
             View dot;
             TextView name, count;
             if (convert == null) {
+                outer = UiKit.vertical(TagManagerActivity.this);
+                outer.setPadding(0, 0, 0, UiKit.dp(TagManagerActivity.this, 8));
+
                 box = UiKit.horizontal(TagManagerActivity.this);
                 box.setGravity(Gravity.CENTER_VERTICAL);
-                int p = UiKit.dp(TagManagerActivity.this, 16);
-                box.setPadding(p, UiKit.dp(TagManagerActivity.this, 12), p,
-                        UiKit.dp(TagManagerActivity.this, 12));
+                box.setBackground(UiKit.roundRect(TagManagerActivity.this,
+                        UiKit.C.SURFACE, 12f));
+                box.setElevation(UiKit.dp(TagManagerActivity.this, 1.5f));
+                int p = UiKit.dp(TagManagerActivity.this, 14);
+                box.setPadding(p, UiKit.dp(TagManagerActivity.this, 13), p,
+                        UiKit.dp(TagManagerActivity.this, 13));
+                outer.addView(box);
 
                 dot = UiKit.colorDot(TagManagerActivity.this, 0, 14);
                 android.widget.LinearLayout.LayoutParams dotLp =
@@ -157,15 +173,19 @@ public class TagManagerActivity extends Activity {
                 count = UiKit.text(TagManagerActivity.this, "", 12f);
                 count.setAlpha(0.6f);
                 box.addView(count);
-                box.setTag(new View[]{dot, name, count});
+                outer.setTag(new View[]{dot, name, count});
             } else {
-                box = (android.widget.LinearLayout) convert;
-                View[] v = (View[]) box.getTag();
+                outer = (android.widget.LinearLayout) convert;
+                box = (android.widget.LinearLayout) outer.getChildAt(0);
+                View[] v = (View[]) outer.getTag();
                 dot = v[0]; name = (TextView) v[1]; count = (TextView) v[2];
             }
             LinkStore.Tag t = data.get(pos);
             name.setText("#" + t.name);
+            name.setTextColor(t.color == 0 ? UiKit.C.TEXT : t.color);
+            name.setTypeface(null, android.graphics.Typeface.BOLD);
             count.setText(t.count + " 条");
+            count.setTextColor(UiKit.C.TEXT_3);
 
             // 色点
             android.graphics.drawable.GradientDrawable g =
@@ -179,7 +199,7 @@ public class TagManagerActivity extends Activity {
                 g.setStroke(UiKit.dp(TagManagerActivity.this, 1), 0x33000000);
             }
             dot.setBackground(g);
-            return box;
+            return outer;
         }
     }
 }
