@@ -1,0 +1,30 @@
+# 构建产物
+build/
+*.apk
+*.apk.idsig
+*.dex
+*.class
+
+# 签名文件（不要提交！每台机器用自己生成的 debug keystore）
+debug.keystore
+*.keystore
+*.jks
+keystore.properties
+
+# Android SDK 路径（各设备不同）
+local.properties
+
+# IDE
+.idea/
+*.iml
+.gradle/
+.vscode/
+
+# 系统
+.DS_Store
+Thumbs.db
+*.log
+
+# 测试临时文件
+PTest.java
+FetchTest.java
